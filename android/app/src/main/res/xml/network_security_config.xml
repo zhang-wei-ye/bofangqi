@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 额外信任 Let's Encrypt 新根 ISRG Root YE（旧手机系统证书库里没有），供视频播放器等原生网络请求使用 -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/isrg_root_ye" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
