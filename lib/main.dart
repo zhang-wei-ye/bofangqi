@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'net.dart';
-import 'pages/search_page.dart';
+import 'pages/home_shell.dart';
 
 void main() {
   HttpOverrides.global = AppHttpOverrides();
@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '播放一烨',
       theme: ThemeData.dark(),
-      home: const SearchPage(),
+      home: const HomeShell(),
       debugShowCheckedModeBanner: false,
     );
   }

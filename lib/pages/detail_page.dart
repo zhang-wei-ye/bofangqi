@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../maccms_api.dart';
+import '../history_store.dart';
 import '../models.dart';
 import 'player_page.dart';
 import 'widgets.dart';
@@ -21,6 +22,7 @@ class _DetailPageState extends State<DetailPage> {
   String? _error;
   int _line = 0;
   bool _expandContent = false;
+  WatchRecord? _record;
 
   Vod get _vod => _cands[_sel];
 
@@ -29,6 +31,40 @@ class _DetailPageState extends State<DetailPage> {
     super.initState();
     // 搜索接口用的是 ac=detail，一般已经带了播放列表；没带再单独请求一次。
     if (_vod.lines.isEmpty) _loadDetail();
+    _loadRecord(selectLast: true);
+  }
+
+  /// 读观看记录；第一次进来时顺便切到上次看的源和线路。
+  Future<void> _loadRecord({bool selectLast = false}) async {
+    final r = await HistoryStore.get(_vod.name);
+    if (!mounted || r == null) return;
+    setState(() => _record = r);
+    if (!selectLast) return;
+    final src = _cands.indexWhere((c) => c.source.api == r.sourceApi);
+    if (src >= 0 && src != _sel) _selectSource(src);
+    _selectRecordLine();
+  }
+
+  void _selectRecordLine() {
+    final r = _record;
+    if (r == null || _vod.source.api != r.sourceApi) return;
+    final i = _vod.playableLines.indexWhere((l) => l.name == r.lineName);
+    if (i >= 0) setState(() => _line = i);
+  }
+
+  int? _recordEpisode(PlayLine line) => _record?.episodeIn(line);
+
+  Future<void> _openPlayer(PlayLine line, int index, {Duration? startAt}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PlayerPage(vod: _vod, line: line, index: index, startAt: startAt)),
+    );
+    _loadRecord();
+  }
+
+  void _resume(PlayLine line) {
+    final t = _record?.resumeIn(line);
+    if (t != null) _openPlayer(line, t.index, startAt: t.startAt);
   }
 
   void _selectSource(int i) {
@@ -53,6 +89,7 @@ class _DetailPageState extends State<DetailPage> {
         if (v != null) _cands[sel] = v;
         _loading = false;
       });
+      _selectRecordLine();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -112,6 +149,7 @@ class _DetailPageState extends State<DetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_record != null && _recordEpisode(line) != null) _resumeCard(line),
                     const Text('播放线路', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     LineChips(
@@ -137,16 +175,49 @@ class _DetailPageState extends State<DetailPage> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
               sliver: EpisodeGrid(
                 names: line.episodes.map((e) => e.name).toList(),
-                onTap: (i) => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => PlayerPage(vod: _vod, line: line, index: i)),
-                ),
+                current: _recordEpisode(line),
+                // 点的正好是上次没看完的那一集，就从断点接着播。
+                onTap: (i) => i == _recordEpisode(line) && !_record!.finished
+                    ? _openPlayer(line, i, startAt: _record!.position)
+                    : _openPlayer(line, i),
               ),
             ),
           ],
         ],
       ),
     );
+  }
+
+  Widget _resumeCard(PlayLine line) {
+    final r = _record!;
+    final i = _recordEpisode(line)!;
+    final hasNext = i + 1 < line.episodes.length;
+    final progress = r.finished
+        ? '已看完'
+        : r.positionMs > 0
+        ? '看到 ${_fmt(r.position)}${r.durationMs > 0 ? ' / ${_fmt(r.duration)}' : ''}'
+        : '';
+    final where = r.sourceApi == _vod.source.api ? '' : '（上次在「${r.sourceName}」源）';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: const Icon(Icons.history),
+        title: Text('上次看到 ${line.episodes[i].name} $progress'),
+        subtitle: where.isEmpty ? null : Text(where, style: const TextStyle(fontSize: 12)),
+        trailing: FilledButton(
+          onPressed: () => _resume(line),
+          child: Text(r.finished && hasNext ? '看下一集' : '继续播放'),
+        ),
+      ),
+    );
+  }
+
+  static String _fmt(Duration d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final h = d.inHours;
+    final m = two(d.inMinutes.remainder(60));
+    final s = two(d.inSeconds.remainder(60));
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 
   Widget _header() {

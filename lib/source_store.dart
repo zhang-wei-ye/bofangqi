@@ -26,12 +26,11 @@ const List<VideoSource> kDefaultSources = [
   VideoSource(name: '魔都', api: 'https://caiji.moduapi.cc/api.php/provide/vod/'),
   VideoSource(name: '最大', api: 'http://zuidazy.me/api.php/provide/vod/'),
   VideoSource(name: '新浪', api: 'https://api.xinlangapi.com/xinlangapi.php/provide/vod/'),
-  // 以下接口能连上，但测试时返回"暂不支持搜索"或 403，默认关闭，可在手机上测试后自行开启
-  VideoSource(name: '闪电', api: 'http://sdzyapi.com/api.php/provide/vod/', enabled: false),
-  VideoSource(name: '牛牛', api: 'https://api.niuniuzy.me/api.php/provide/vod/', enabled: false),
-  VideoSource(name: '丫丫', api: 'https://cj.yayazy.net/api.php/provide/vod/', enabled: false),
-  VideoSource(name: '索尼', api: 'https://suoniapi.com/api.php/provide/vod/', enabled: false),
-  VideoSource(name: '樱花', api: 'https://m3u8.apiyhzy.com/api.php/provide/vod/', enabled: false),
+  VideoSource(name: '闪电', api: 'http://sdzyapi.com/api.php/provide/vod/'),
+  VideoSource(name: '牛牛', api: 'https://api.niuniuzy.me/api.php/provide/vod/'),
+  VideoSource(name: '丫丫', api: 'https://cj.yayazy.net/api.php/provide/vod/'),
+  VideoSource(name: '索尼', api: 'https://suoniapi.com/api.php/provide/vod/'),
+  VideoSource(name: '樱花', api: 'https://m3u8.apiyhzy.com/api.php/provide/vod/'),
 ];
 
 /// 数据源列表保存在本机，换源不用重新打包。

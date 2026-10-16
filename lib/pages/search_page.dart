@@ -4,7 +4,6 @@ import '../maccms_api.dart';
 import '../models.dart';
 import '../source_store.dart';
 import 'detail_page.dart';
-import 'sources_page.dart';
 import 'widgets.dart';
 
 class SearchPage extends StatefulWidget {
@@ -16,15 +15,12 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final _controller = TextEditingController();
-  List<VideoSource> _sources = [];
   final List<Vod> _results = [];
   final Map<String, String> _errors = {};
   int _pending = 0;
   int _total = 0;
   int _generation = 0;
   bool _searched = false;
-
-  List<VideoSource> get _enabled => _sources.where((s) => s.enabled).toList();
 
   /// 同名的片子合并成一条，进详情页再选源。
   List<List<Vod>> get _groups {
@@ -36,37 +32,17 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _loadSources();
-  }
-
-  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSources() async {
-    final s = await SourceStore.load();
-    if (mounted) setState(() => _sources = s);
-  }
-
-  Future<void> _openSources() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const SourcesPage()));
-    await _loadSources();
-  }
-
-  /// 所有启用的源同时搜，哪个先返回先显示哪个。
+  /// 所有内置源同时搜，哪个先返回先显示哪个。
   void _search() {
     final keyword = _controller.text.trim();
     if (keyword.isEmpty) return;
     FocusScope.of(context).unfocus();
-    final sources = _enabled;
-    if (sources.isEmpty) {
-      _openSources();
-      return;
-    }
+    const sources = kDefaultSources;
     final gen = ++_generation;
     setState(() {
       _results.clear();
@@ -89,18 +65,24 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  /// 清空搜索框和结果，回到首页状态；同时让还在路上的请求作废。
+  void _clear() {
+    _controller.clear();
+    setState(() {
+      _generation++;
+      _results.clear();
+      _errors.clear();
+      _pending = 0;
+      _total = 0;
+      _searched = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('搜索追剧 v1.1'),
-        actions: [
-          TextButton.icon(
-            onPressed: _openSources,
-            icon: const Icon(Icons.dns_outlined),
-            label: Text('数据源(${_enabled.length})'),
-          ),
-        ],
+        title: const Text('播放一烨'),
       ),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -109,11 +91,20 @@ class _SearchPageState extends State<SearchPage> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _search(),
-                    decoration: const InputDecoration(hintText: '输入剧名搜索', border: OutlineInputBorder()),
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _controller,
+                    builder: (_, value, _) => TextField(
+                      controller: _controller,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _search(),
+                      decoration: InputDecoration(
+                        hintText: '输入剧名搜索',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: value.text.isEmpty && !_searched
+                            ? null
+                            : IconButton(tooltip: '清除', onPressed: _clear, icon: const Text('❌')),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -162,22 +153,10 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _body() {
-    if (_sources.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('还没有数据源，先添加一个苹果 CMS 采集接口'),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(onPressed: _openSources, icon: const Icon(Icons.add), label: const Text('添加数据源')),
-          ],
-        ),
-      );
-    }
     if (_results.isEmpty) {
       return Center(
         child: Text(!_searched
-            ? '已启用 ${_enabled.length} 个数据源，输入剧名点搜索'
+            ? '输入剧名点搜索'
             : _pending > 0
                 ? '搜索中…'
                 : '没有搜到结果'),
