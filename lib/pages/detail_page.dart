@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../maccms_api.dart';
 import '../history_store.dart';
 import '../models.dart';
+import 'download_sheet.dart';
 import 'player_page.dart';
 import 'widgets.dart';
 
@@ -99,12 +100,28 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
+  void _download(PlayLine? line) {
+    if (line == null || !line.isDirect) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('这条线路不是直链，没法缓存，换条线路试试')),
+      );
+      return;
+    }
+    showDownloadSheet(context, _vod, line);
+  }
+
   @override
   Widget build(BuildContext context) {
     final lines = _vod.playableLines;
     final line = lines.isEmpty ? null : lines[_line.clamp(0, lines.length - 1)];
     return Scaffold(
-      appBar: AppBar(title: Text(_vod.name)),
+      appBar: AppBar(
+        title: Text(_vod.name),
+        actions: [
+          if (!_loading && _error == null && line != null)
+            IconButton(tooltip: '缓存', onPressed: () => _download(line), icon: const Icon(Icons.download_outlined)),
+        ],
+      ),
       body: CustomScrollView(
         slivers: [
           SliverPadding(

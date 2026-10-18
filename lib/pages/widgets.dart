@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 class Poster extends StatelessWidget {
   final String url;
+
+  /// 本地缓存的封面，有就优先用（没网也能显示）。
+  final String? file;
   final double width;
   final double height;
-  const Poster({super.key, required this.url, required this.width, required this.height});
+  const Poster({super.key, required this.url, required this.width, required this.height, this.file});
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +19,13 @@ class Poster extends StatelessWidget {
       color: Colors.white10,
       child: const Icon(Icons.movie_outlined, color: Colors.white38),
     );
+    final f = file == null ? null : File(file!);
+    if (f != null && f.existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.file(f, width: width, height: height, fit: BoxFit.cover, errorBuilder: (_, _, _) => placeholder),
+      );
+    }
     if (!url.startsWith('http')) return placeholder;
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),

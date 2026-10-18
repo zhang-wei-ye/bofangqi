@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../history_store.dart';
 import '../maccms_api.dart';
 import '../models.dart';
+import 'cache_page.dart';
 import 'detail_page.dart';
 import 'player_page.dart';
 import 'widgets.dart';
@@ -59,6 +60,12 @@ class _HistoryPageState extends State<HistoryPage> {
     if (!mounted) return;
     setState(() => _opening = false);
     if (vod == null) {
+      // 没网或源挂了，有缓存就先离线播。
+      if (!detail && await playOfflineRecord(context, r)) {
+        _load();
+        return;
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error == null ? '在「${r.sourceName}」源里没找到这部片了，去首页重新搜一下吧' : '加载失败：$error')),
       );
