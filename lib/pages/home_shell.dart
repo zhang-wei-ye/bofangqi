@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'cache_page.dart';
 import 'history_page.dart';
 import 'search_page.dart';
 
-/// 底部导航：首页（搜索）和观看历史。
+/// 底部导航：首页（搜索）、观看历史和离线缓存。
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -25,6 +26,7 @@ class _HomeShellState extends State<HomeShell> {
         children: [
           const SearchPage(),
           HistoryPage(key: ValueKey(_historyVisits)),
+          const CachePage(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -36,6 +38,7 @@ class _HomeShellState extends State<HomeShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: '首页'),
           NavigationDestination(icon: Icon(Icons.history), label: '历史'),
+          NavigationDestination(icon: Icon(Icons.download_outlined), selectedIcon: Icon(Icons.download), label: '缓存'),
         ],
       ),
     );
