@@ -56,7 +56,9 @@ class _DownloadingTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
           child: Row(
             children: [
-              Expanded(child: Text('共 ${tasks.length} 个任务', style: const TextStyle(fontSize: 12, color: Colors.white60))),
+              Expanded(
+                child: Text('共 ${tasks.length} 个任务', style: const TextStyle(fontSize: 12, color: Colors.white60)),
+              ),
               TextButton.icon(
                 onPressed: anyActive ? dm.pauseAll : dm.resumeAll,
                 icon: Icon(anyActive ? Icons.pause : Icons.play_arrow, size: 18),
@@ -69,14 +71,14 @@ class _DownloadingTab extends StatelessWidget {
           child: ListView.separated(
             itemCount: tasks.length,
             separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (_, i) => _item(tasks[i]),
+            itemBuilder: (context, i) => _item(context, tasks[i]),
           ),
         ),
       ],
     );
   }
 
-  Widget _item(DownloadTask t) {
+  Widget _item(BuildContext context, DownloadTask t) {
     final dm = DownloadManager.instance;
     final pct = '${(t.progress * 100).toStringAsFixed(0)}%';
     final size = t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : '';
@@ -111,13 +113,27 @@ class _DownloadingTab extends StatelessWidget {
               color: t.status == DownloadStatus.failed ? Colors.redAccent : null,
             ),
             const SizedBox(height: 4),
-            Text(status,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: t.status == DownloadStatus.failed ? Colors.redAccent : null)),
+            Text(
+              status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: t.status == DownloadStatus.failed ? Colors.redAccent : null),
+            ),
           ],
         ),
-        trailing: IconButton(tooltip: tip, onPressed: onTap, icon: Icon(icon)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(tooltip: tip, onPressed: onTap, icon: Icon(icon)),
+            IconButton(
+              tooltip: '删除',
+              onPressed: () async {
+                if (await _confirm(context, '删除「${t.vodName} ${t.episodeName}」的下载任务？')) dm.remove([t]);
+              },
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -152,7 +168,13 @@ class _DoneTab extends StatelessWidget {
               style: const TextStyle(fontSize: 12),
             ),
             isThreeLine: true,
-            trailing: const Icon(Icons.chevron_right),
+            trailing: IconButton(
+              tooltip: '删除',
+              onPressed: () async {
+                if (await _confirm(context, '删除「${g.vodName}」已缓存的 ${g.tasks.length} 集？')) dm.remove(g.tasks);
+              },
+              icon: const Icon(Icons.delete_outline),
+            ),
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CachedVodPage(groupKey: g.key))),
           ),
         );
@@ -173,6 +195,23 @@ class CachedVodPage extends StatefulWidget {
 class _CachedVodPageState extends State<CachedVodPage> {
   final _dm = DownloadManager.instance;
   WatchRecord? _record;
+
+  /// 不为空时是多选删除模式，里面是选中的任务 id。
+  Set<String>? _selecting;
+
+  void _toggle(DownloadTask t) =>
+      setState(() => _selecting!.contains(t.id) ? _selecting!.remove(t.id) : _selecting!.add(t.id));
+
+  Future<void> _deleteSelected(OfflineGroup g) async {
+    final list = g.tasks.where((t) => _selecting!.contains(t.id)).toList();
+    if (list.isEmpty) return;
+    final all = list.length == g.tasks.length;
+    if (!await _confirm(context, all ? '删除「${g.vodName}」已缓存的全部 ${list.length} 集？' : '删除选中的 ${list.length} 集？')) return;
+    _dm.remove(list);
+    if (!mounted) return;
+    setState(() => _selecting = null);
+    if (all) Navigator.pop(context);
+  }
 
   @override
   void initState() {
@@ -200,15 +239,56 @@ class _CachedVodPageState extends State<CachedVodPage> {
       listenable: _dm,
       builder: (context, _) {
         final g = _dm.group(widget.groupKey);
-        return Scaffold(
-          appBar: AppBar(title: Text(g?.vodName ?? '已缓存')),
-          body: g == null
-              ? const _Empty(icon: Icons.download_done, text: '缓存已经删光了')
-              : ListView.separated(
-                  itemCount: g.tasks.length + 1,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) => i == 0 ? _header(g) : _episode(g, i - 1),
-                ),
+        final sel = _selecting;
+        if (g != null && sel != null) sel.removeWhere((id) => !g.tasks.any((t) => t.id == id));
+        final allSelected = g != null && sel != null && sel.length == g.tasks.length;
+        return PopScope(
+          // 多选时按返回键先退出多选。
+          canPop: sel == null,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) setState(() => _selecting = null);
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(sel != null ? '已选 ${sel.length} 集' : g?.vodName ?? '已缓存'),
+              leading: sel == null
+                  ? null
+                  : IconButton(onPressed: () => setState(() => _selecting = null), icon: const Icon(Icons.close)),
+              actions: [
+                if (g != null && sel == null)
+                  IconButton(
+                    tooltip: '删除',
+                    onPressed: () => setState(() => _selecting = {}),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                if (g != null && sel != null)
+                  TextButton(
+                    onPressed: () => setState(() => allSelected ? sel.clear() : sel.addAll(g.tasks.map((t) => t.id))),
+                    child: Text(allSelected ? '取消全选' : '全选'),
+                  ),
+              ],
+            ),
+            bottomNavigationBar: g == null || sel == null
+                ? null
+                : SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                        onPressed: sel.isEmpty ? null : () => _deleteSelected(g),
+                        icon: const Icon(Icons.delete),
+                        label: Text(sel.isEmpty ? '选择要删除的集' : '删除 ${sel.length} 集'),
+                      ),
+                    ),
+                  ),
+            body: g == null
+                ? const _Empty(icon: Icons.download_done, text: '缓存已经删光了')
+                : ListView.separated(
+                    itemCount: g.tasks.length + 1,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, i) => i == 0 ? _header(g) : _episode(g, i - 1),
+                  ),
+          ),
         );
       },
     );
@@ -229,8 +309,10 @@ class _CachedVodPageState extends State<CachedVodPage> {
               children: [
                 Text(g.vodName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('${g.sourceName} · ${g.lineName}\n${g.tasks.length} 集 · ${formatBytes(g.bytes)}',
-                    style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                Text(
+                  '${g.sourceName} · ${g.lineName}\n${g.tasks.length} 集 · ${formatBytes(g.bytes)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
                 if (last >= 0) ...[
                   const SizedBox(height: 8),
                   FilledButton.icon(
@@ -258,6 +340,16 @@ class _CachedVodPageState extends State<CachedVodPage> {
         : r.positionMs > 0
         ? ' · 看到 ${_fmt(r.position)}'
         : '';
+    final sel = _selecting;
+    if (sel != null) {
+      return CheckboxListTile(
+        value: sel.contains(t.id),
+        onChanged: (_) => _toggle(t),
+        controlAffinity: ListTileControlAffinity.leading,
+        title: Text(t.episodeName),
+        subtitle: Text('${formatBytes(t.bytes)}$progress', style: const TextStyle(fontSize: 12)),
+      );
+    }
     return Dismissible(
       key: ValueKey(t.id),
       direction: DismissDirection.endToStart,
@@ -268,6 +360,8 @@ class _CachedVodPageState extends State<CachedVodPage> {
         title: Text(t.episodeName),
         subtitle: Text('${formatBytes(t.bytes)}$progress', style: const TextStyle(fontSize: 12)),
         onTap: () => _play(g, i),
+        // 长按直接进多选，并选中这一集。
+        onLongPress: () => setState(() => _selecting = {t.id}),
       ),
     );
   }
@@ -287,7 +381,9 @@ Future<void> playOffline(BuildContext context, OfflineGroup g, int index, {Durat
   if (!context.mounted) return;
   await Navigator.push(
     context,
-    MaterialPageRoute(builder: (_) => PlayerPage(vod: o.vod, line: o.line, index: index, startAt: startAt, offline: true)),
+    MaterialPageRoute(
+      builder: (_) => PlayerPage(vod: o.vod, line: o.line, index: index, startAt: startAt, offline: true),
+    ),
   );
 }
 
@@ -296,8 +392,10 @@ Future<bool> playOfflineRecord(BuildContext context, WatchRecord r) async {
   final key = HistoryStore.keyOf(r.name);
   final groups = DownloadManager.instance.groups.where((g) => HistoryStore.keyOf(g.vodName) == key).toList();
   if (groups.isEmpty) return false;
-  final g = groups.firstWhere((g) => g.first.sourceApi == r.sourceApi && g.lineName == r.lineName,
-      orElse: () => groups.first);
+  final g = groups.firstWhere(
+    (g) => g.first.sourceApi == r.sourceApi && g.lineName == r.lineName,
+    orElse: () => groups.first,
+  );
   final i = g.tasks.indexWhere((t) => t.episodeName == r.episodeName);
   if (i < 0) {
     await playOffline(context, g, 0);
@@ -352,7 +450,11 @@ class _Empty extends StatelessWidget {
         children: [
           Icon(icon, size: 56, color: color),
           const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center, style: TextStyle(color: color)),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: color),
+          ),
         ],
       ),
     );
