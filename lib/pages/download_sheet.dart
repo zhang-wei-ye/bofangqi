@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import '../downloads.dart';
 import '../models.dart';
 
-/// 选集缓存：勾选要下的集，已经加入过缓存的标出状态、不能再选。
-Future<void> showDownloadSheet(BuildContext context, Vod vod, PlayLine line) async {
+/// 选集缓存：勾选要下的集，已经加入过缓存的标出状态、不能再选。[initial] 是默认勾上的那一集。
+Future<void> showDownloadSheet(BuildContext context, Vod vod, PlayLine line, {int? initial}) async {
   final added = await showModalBottomSheet<int>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _DownloadSheet(vod: vod, line: line),
+    builder: (_) => _DownloadSheet(vod: vod, line: line, initial: initial),
   );
   if (added == null || !context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
@@ -20,7 +20,8 @@ Future<void> showDownloadSheet(BuildContext context, Vod vod, PlayLine line) asy
 class _DownloadSheet extends StatefulWidget {
   final Vod vod;
   final PlayLine line;
-  const _DownloadSheet({required this.vod, required this.line});
+  final int? initial;
+  const _DownloadSheet({required this.vod, required this.line, this.initial});
 
   @override
   State<_DownloadSheet> createState() => _DownloadSheetState();
@@ -29,6 +30,13 @@ class _DownloadSheet extends StatefulWidget {
 class _DownloadSheetState extends State<_DownloadSheet> {
   final _selected = <int>{};
   final _dm = DownloadManager.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    final i = widget.initial;
+    if (i != null && _available.contains(i)) _selected.add(i);
+  }
 
   List<int> get _available => [
     for (var i = 0; i < widget.line.episodes.length; i++)

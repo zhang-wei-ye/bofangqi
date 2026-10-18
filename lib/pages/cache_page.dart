@@ -287,7 +287,7 @@ Future<void> playOffline(BuildContext context, OfflineGroup g, int index, {Durat
   if (!context.mounted) return;
   await Navigator.push(
     context,
-    MaterialPageRoute(builder: (_) => PlayerPage(vod: o.vod, line: o.line, index: index, startAt: startAt)),
+    MaterialPageRoute(builder: (_) => PlayerPage(vod: o.vod, line: o.line, index: index, startAt: startAt, offline: true)),
   );
 }
 

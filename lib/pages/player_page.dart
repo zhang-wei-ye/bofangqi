@@ -9,6 +9,7 @@ import '../hls.dart';
 import '../models.dart';
 import '../net.dart';
 import 'cast_sheet.dart';
+import 'download_sheet.dart';
 import 'player_controls.dart';
 import 'widgets.dart';
 
@@ -19,7 +20,17 @@ class PlayerPage extends StatefulWidget {
 
   /// 从这一集的哪里开始播（续播用），为空从头播。
   final Duration? startAt;
-  const PlayerPage({super.key, required this.vod, required this.line, required this.index, this.startAt});
+
+  /// 播的是已缓存的本地文件，不再显示缓存按钮。
+  final bool offline;
+  const PlayerPage({
+    super.key,
+    required this.vod,
+    required this.line,
+    required this.index,
+    this.startAt,
+    this.offline = false,
+  });
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
@@ -214,6 +225,18 @@ class _PlayerPageState extends State<PlayerPage> {
     _vCtrl?.play();
   }
 
+  /// 缓存：打开选集面板，默认勾上正在看的这一集。
+  void _download() {
+    if (!widget.line.isDirect) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('这条线路不是直链，没法缓存，换条线路试试')),
+      );
+      return;
+    }
+    if (_cCtrl?.isFullScreen == true) _cCtrl!.exitFullScreen();
+    showDownloadSheet(context, widget.vod, widget.line, initial: _index);
+  }
+
   /// 播完自动下一集。
   void _checkCompleted(VideoPlayerController v) {
     final val = v.value;
@@ -245,11 +268,8 @@ class _PlayerPageState extends State<PlayerPage> {
       appBar: AppBar(
         title: Text('${widget.vod.name} ${_current.name}'),
         actions: [
-          IconButton(
-            tooltip: '投屏',
-            onPressed: _cast == null ? _startCast : _stopCast,
-            icon: Icon(_cast == null ? Icons.cast : Icons.cast_connected),
-          ),
+          if (!widget.offline)
+            IconButton(tooltip: '缓存', onPressed: _download, icon: const Icon(Icons.download_outlined)),
         ],
       ),
       body: CustomScrollView(
