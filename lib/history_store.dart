@@ -112,13 +112,15 @@ class HistoryStore {
   static Future<List<WatchRecord>> list() async =>
       (await _all()).values.toList()..sort((a, b) => b.updatedAt - a.updatedAt);
 
-  static Future<void> remove(String name) async {
+  static Future<void> remove(String name) => removeAll([name]);
+
+  static Future<void> removeAll(Iterable<String> names) async {
     final all = await _all();
-    all.remove(keyOf(name));
+    for (final n in names) {
+      all.remove(keyOf(n));
+    }
     await _write(all);
   }
-
-  static Future<void> clear() => _write({});
 
   static Future<void> _write(Map<String, WatchRecord> all) async {
     final prefs = await SharedPreferences.getInstance();
