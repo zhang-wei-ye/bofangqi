@@ -16,9 +16,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _controller = TextEditingController();
   final List<Vod> _results = [];
-  final Map<String, String> _errors = {};
   int _pending = 0;
-  int _total = 0;
   int _generation = 0;
   bool _searched = false;
 
@@ -46,18 +44,15 @@ class _SearchPageState extends State<SearchPage> {
     final gen = ++_generation;
     setState(() {
       _results.clear();
-      _errors.clear();
       _pending = sources.length;
-      _total = sources.length;
       _searched = true;
     });
     for (final source in sources) {
       MacCmsApi.search(source, keyword).then((list) {
         if (!mounted || gen != _generation) return;
         setState(() => _results.addAll(list));
-      }).catchError((Object e) {
-        if (!mounted || gen != _generation) return;
-        setState(() => _errors[source.name] = '$e');
+      }).catchError((Object _) {
+        // 单个源失败不影响其他源，直接忽略。
       }).whenComplete(() {
         if (!mounted || gen != _generation) return;
         setState(() => _pending--);
@@ -71,9 +66,7 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _generation++;
       _results.clear();
-      _errors.clear();
       _pending = 0;
-      _total = 0;
       _searched = false;
     });
   }
@@ -82,7 +75,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('播放一烨'),
+        title: const Text('竹林影馆'),
       ),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -120,35 +113,12 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 还有源没返回时显示进度条。
   Widget _statusBar() {
-    if (!_searched) return const SizedBox.shrink();
-    final done = _total - _pending;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_pending > 0) const LinearProgressIndicator(),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text(
-            '已返回 $done/$_total 个源，共 ${_groups.length} 部'
-            '${_errors.isEmpty ? '' : '，${_errors.length} 个源失败（点此查看）'}',
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
-          ),
-        ),
-      ],
-    ).wrapTap(_errors.isEmpty ? null : _showErrors);
-  }
-
-  void _showErrors() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('失败的源'),
-        content: SingleChildScrollView(
-          child: Text(_errors.entries.map((e) => '${e.key}：${e.value}').join('\n\n')),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭'))],
-      ),
+    if (_pending == 0) return const SizedBox.shrink();
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 6),
+      child: LinearProgressIndicator(),
     );
   }
 

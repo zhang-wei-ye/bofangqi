@@ -2,7 +2,7 @@
     <application
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:label="播放一烨"
+        android:label="竹林影馆"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

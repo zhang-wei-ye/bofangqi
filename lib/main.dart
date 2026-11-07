@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'downloads.dart';
 import 'net.dart';
-import 'pages/home_shell.dart';
+import 'pages/activation_page.dart';
 
 void main() {
   HttpOverrides.global = AppHttpOverrides();
@@ -20,9 +20,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '播放一烨',
+      title: '竹林影馆',
       theme: ThemeData.dark(),
-      home: const HomeShell(),
+      home: const LicenseGate(),
       debugShowCheckedModeBanner: false,
     );
   }
